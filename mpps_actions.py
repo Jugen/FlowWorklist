@@ -497,6 +497,20 @@ def _db_connect(db_cfg: Dict[str, Any]):
         )
         return "psycopg2", conn
 
+    if db_type in ("mssql", "sqlserver"):
+        import mssql_python  # type: ignore
+        host_part, dbname = dsn.split("/", 1)
+        host, port = host_part.split(":", 1)
+        conn = mssql_python.connect(
+            server=host.strip(),
+            port=port.strip(),
+            database=dbname.strip(),
+            uid=user, pwd=password,
+            trust_server_certificate="yes",
+            timeout=10,
+        )
+        return "mssql", conn
+
     if db_type == "mysql":
         import pymysql  # type: ignore
         host_part, dbname = dsn.split("/", 1)

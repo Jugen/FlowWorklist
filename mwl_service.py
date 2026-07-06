@@ -454,6 +454,10 @@ def _connect_oracle_with_fallback(user: str, password: str, dsn: str):
             ) from first_err
 
 
+def _translate_query_for_mssql(query: str) -> str:
+    return query
+
+
 def _translate_query_for_mysql(query: str) -> str:
     """Very small best-effort translation of common Oracle functions to MySQL equivalents."""
     if not query:
@@ -531,6 +535,24 @@ class WorklistProvider:
             # Conexão PostgreSQL estabelecida
                 return True
 
+            if self.db_type in ('mssql', 'sqlserver'):
+                try:
+                    import mssql_python
+                except Exception as e:
+                    logging.error(t('db_driver_missing', db='SQL Server') + f" {e}")
+                    return False
+                host, port, dbname = _parse_dsn_ip_port_db(DB_DSN, 1433)
+                if not host:
+                    logging.error(t('db_dsn_invalid', db='SQL Server'))
+                    return False
+                self.conn = mssql_python.connect(
+                    server=host, port=str(port), database=dbname,
+                    uid=DB_USER, pwd=DB_PASSWORD, timeout=10,
+                    trust_server_certificate="yes",
+                )
+                self.driver = 'mssql'
+                return True
+
             if self.db_type == 'mysql':
                 # Tentando conectar a MySQL
                 try:
@@ -555,6 +577,8 @@ class WorklistProvider:
 
     def _effective_query(self) -> str:
         q = SQL_QUERY
+        if self.db_type in ('mssql', 'sqlserver'):
+            return _translate_query_for_mssql(q)
         if self.db_type == 'mysql':
             if 'TO_CHAR' in (q or '').upper() or 'DECODE(' in (q or '').upper():
                 logging.warning("Traduzindo SQL Oracle->MySQL para funções comuns (TO_CHAR, DECODE). Verifique resultados.")

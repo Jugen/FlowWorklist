@@ -156,6 +156,7 @@
               <option value="oracle" data-i18n="db_type_oracle" {% if cfg.get('database', {}).get('type', 'oracle') == 'oracle' %}selected{% endif %}>Oracle</option>
               <option value="postgres" data-i18n="db_type_postgresql" {% if cfg.get('database', {}).get('type', 'oracle') == 'postgres' %}selected{% endif %}>PostgreSQL</option>
               <option value="mysql" data-i18n="db_type_mysql" {% if cfg.get('database', {}).get('type', 'oracle') == 'mysql' %}selected{% endif %}>MySQL</option>
+			  <option value="mssql" data-i18n="db_type_mssql" {% if cfg.get('database', {}).get('type', 'oracle') == 'mssql' %}selected{% endif %}>SQL Server</option>
             </select>
           </div>
 

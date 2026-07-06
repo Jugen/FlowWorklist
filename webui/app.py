@@ -206,6 +206,8 @@ def install_db_driver(db_type: str):
         'postgres': ['psycopg2-binary'],
         'postgresql': ['psycopg2-binary'],
         'mysql': ['PyMySQL'],
+        'mssql': ['mssql-python'],
+        'sqlserver': ['mssql-python'],
         'pynetdicom': ['pynetdicom'],
     }
     packages = pkg_map.get((db_type or '').lower())
@@ -232,6 +234,8 @@ def is_db_plugin_installed(db_type: str) -> bool:
         'postgres': 'psycopg2-binary',
         'postgresql': 'psycopg2-binary',
         'mysql': 'PyMySQL',
+        'mssql': 'mssql-python',
+        'sqlserver': 'mssql-python',
     }
     pkg = pkg_map.get(dt)
     if not pkg:
@@ -247,6 +251,7 @@ def plugins_status():
         {'id': 'oracle', 'label': 'Oracle (oracledb/cx_Oracle)', 'module': 'oracledb|cx_Oracle', 'package': 'oracledb|cx_Oracle'},
         {'id': 'postgres', 'label': 'PostgreSQL (psycopg2)', 'module': 'psycopg2', 'package': 'psycopg2-binary'},
         {'id': 'mysql', 'label': 'MySQL (PyMySQL)', 'module': 'pymysql', 'package': 'PyMySQL'},
+        {'id': 'mssql', 'label': 'SQL Server (mssql)', 'module': 'mssql', 'package': 'mssql-python'},
         {'id': 'pynetdicom', 'label': 'DICOM Worklist Support (pynetdicom)', 'module': 'pynetdicom', 'package': 'pynetdicom'},
         {'id': 'dcmtk', 'label': 'DCMTK (System Tool)', 'module': 'dcmprscp/dcm2img', 'package': 'DCMTK.DCMTK', 'source': 'system'},
         {'id': 'sumatra', 'label': 'SumatraPDF (System Tool)', 'module': 'SumatraPDF.exe', 'package': 'SumatraPDF.SumatraPDF', 'source': 'system'},
@@ -1034,6 +1039,8 @@ def plugin_install(name):
         'postgres': 'psycopg2-binary',
         'postgresql': 'psycopg2-binary',
         'mysql': 'PyMySQL',
+        'mssql': 'mssql-python',
+        'sqlserver': 'mssql-python',
         'pynetdicom': 'pynetdicom',
     }
     pkg = mapping.get(name)
@@ -1090,6 +1097,8 @@ def plugin_uninstall(name):
         'postgres': 'psycopg2-binary',
         'postgresql': 'psycopg2-binary',
         'mysql': 'PyMySQL',
+        'mssql': 'mssql-python',
+        'sqlserver': 'mssql-python',
         'pynetdicom': 'pynetdicom',
     }
     pkg = mapping.get(name)
@@ -1274,6 +1283,23 @@ def test_db():
                 # Set connection timeout
                 conn = psycopg2.connect(host=host, port=port, dbname=dbname, user=user, password=pwd, connect_timeout=10)
                 driver_name = 'psycopg2'
+                test_sql = "SELECT 1"
+
+            elif db_type in ('mssql', 'sqlserver'):
+                try:
+                    import mssql_python
+                except ImportError:
+                    return jsonify({
+                        'ok': False,
+                        'message': 'SQL Server driver not installed',
+                        'error': 'Install mssql-python',
+                        'canInstall': True
+                    }), 400
+                host, port, dbname = parse_dsn_ip_port_db(dsn)
+                if not host:
+                    return jsonify({'ok': False, 'message': 'Invalid DSN format for SQL Server. Expected IP:PORT/DB'})
+                conn = mssql_python.connect(server=host, port=str(port), database=dbname, uid=user, pwd=pwd, timeout=10, trust_server_certificate="yes")
+                driver_name = 'mssql'
                 test_sql = "SELECT 1"
 
             elif db_type == 'mysql':
