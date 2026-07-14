@@ -360,6 +360,7 @@ MWL_AE_TITLE = SERVER_CFG.get("aet", "FMWL").encode()
 MWL_HOST = SERVER_CFG.get("host", "localhost")
 MWL_PORT = int(SERVER_CFG.get("port", 104))
 CLIENT_AE_TITLE = SERVER_CFG.get("client_aet", "ANY").encode()
+AE_SCOPING = bool(SERVER_CFG.get("ae_scoping", False))
 
 # --- DATABASE CONFIG ---
 DB_CFG = config.get("database", {})
@@ -610,7 +611,7 @@ class WorklistProvider:
                 'nm_paciente', 'cd_paciente', 'nascimento', 'tp_sexo', 'exame_descricao',
                 'exame_id', 'exame_data', 'exame_hora', 'medico_responsavel', 'modalidade',
                 'prioridade', 'tp_atendimento', 'cd_atendimento', 'unidade',
-                'procedure_code_value', 'code_meaning', 'code_scheme_designator'
+                'procedure_code_value', 'code_meaning', 'code_scheme_designator', 'ae_title'
             ]
             
             results = []
@@ -619,7 +620,7 @@ class WorklistProvider:
                 row_count += 1
                 
                 # Validate column count
-                if len(row) != 17:
+                if len(row) < 17:
                     logging.error(f"Query returned {len(row)} columns, expected 17. Row {row_count} skipped. Check SQL_QUERY_GUIDE.md")
                     continue
                 
@@ -678,7 +679,13 @@ def normalize_modality(value):
 
 # --- HANDLER DICOM MWL FIND (C-FIND SCP) ---
 def handle_find_mwl(event, worklist_provider: WorklistProvider):
-    # O 'identifier' contém os filtros DICOM enviados pelo cliente
+    calling_aet = ''
+    try:
+        if event.assoc and event.assoc.requestor:
+            calling_aet = str(event.assoc.requestor.ae_title or '').strip().upper()
+    except Exception:
+        calling_aet = ''    # O 'identifier' contém os filtros DICOM enviados pelo cliente
+
     identifier = event.identifier
 
     # --- Extração de filtros simples ---
@@ -756,10 +763,16 @@ def handle_find_mwl(event, worklist_provider: WorklistProvider):
     from collections import defaultdict
     grouped = defaultdict(list)
     for row in worklist_rows:
+        if AE_SCOPING:
+            row_ae_title = row.get('ae_title') or ''
+            if row_ae_title and not matches_filter(calling_aet, row_ae_title):
+                continue
+
         row_modality_norm = normalize_modality(row.get('modalidade', ''))
         # If modality filter exists, keep only matching rows before grouping
         if modality_filter_norm and not matches_filter(row_modality_norm, modality_filter_norm):
             continue
+
         key = f"{str(row.get('exame_id', '')).strip()}::{row_modality_norm or 'UNK'}"
         grouped[key].append(row)
 
