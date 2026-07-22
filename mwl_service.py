@@ -708,7 +708,10 @@ def handle_find_mwl(event, worklist_provider: WorklistProvider):
             pass
 
     # Log dos filtros recebidos
-    logging.info(f"Filtros recebidos: PatientName={patient_name_filter}, PatientID={patient_id_filter}, Modality={modality_filter}")
+    if AE_SCOPING:
+        logging.info(f"Filters received: PatientName={patient_name_filter}, PatientID={patient_id_filter}, Modality={modality_filter}, AE Title={calling_aet}")
+    else:
+        logging.info(f"Filters received: PatientName={patient_name_filter}, PatientID={patient_id_filter}, Modality={modality_filter}")
 
     def clean_filter(value):
         if value is None:
@@ -765,8 +768,10 @@ def handle_find_mwl(event, worklist_provider: WorklistProvider):
     for row in worklist_rows:
         if AE_SCOPING:
             row_ae_title = row.get('ae_title') or ''
-            if row_ae_title and not matches_filter(calling_aet, row_ae_title):
-                continue
+            if row_ae_title: 
+                if not matches_filter(calling_aet, row_ae_title): continue
+            else: 
+                if not modality_filter_norm: continue
 
         row_modality_norm = normalize_modality(row.get('modalidade', ''))
         # If modality filter exists, keep only matching rows before grouping
